@@ -157,4 +157,4 @@ GitHub Actions 同时构建两种芯片，本地分别构建时需要独立源�
 - 原应用配置：[Kahen/ImmortalWrt-CI-XG-040G-MD-UBI](https://github.com/Kahen/ImmortalWrt-CI-XG-040G-MD-UBI)，
   迁移基准提交 `bce6b04f39fd2b2238c76c9bef6ba789f11ad10a`。
 - 第三方包：vernesong/OpenClash、sirpdboy/luci-app-lucky、VIKINGYFY/packages、
-  bingoguo93/luci-app-airoha-npu、VizzleTF/luci-theme-footstrap。
+  rchen14b/luci-app-airoha-npu（固定提交 `14521b8414da1e98517a295d8ec267087c7dde8e`）、VizzleTF/luci-theme-footstrap。
