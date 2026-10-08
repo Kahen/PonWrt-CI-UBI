@@ -96,12 +96,46 @@ import_autoreboot() {
   rm -rf "$tmp"
 }
 
+import_airoha_npu() {
+  # The former bingoguo93/luci-app-airoha-npu endpoint is no longer public.
+  # Pin to a known public upstream revision supporting AN7581 and AN7583.
+  local repo="rchen14b/luci-app-airoha-npu"
+  local revision="14521b8414da1e98517a295d8ec267087c7dde8e"
+  local dest="./package/luci-app-airoha-npu"
+  local required
+
+  remove_matches "luci-app-airoha-npu"
+  git init -q "$dest"
+  git -C "$dest" remote add origin "https://github.com/Kahen/PonWrt-CI-UBI.git"
+  git -C "$dest" fetch --depth=1 origin "$revision"
+  git -C "$dest" -c advice.detachedHead=false checkout --detach FETCH_HEAD
+
+  for required in \
+    Makefile \
+    htdocs/luci-static/resources/view/airoha_npu/status.js \
+    root/usr/libexec/rpcd/luci.airoha_npu \
+    root/usr/share/luci/menu.d/luci-app-airoha-npu.json \
+    root/usr/share/rpcd/acl.d/luci-app-airoha-npu.json; do
+    if [ ! -f "$dest/$required" ]; then
+      echo "ERROR: pinned Airoha NPU package is missing $required" >&2
+      exit 1
+    fi
+  done
+  if ! grep -Fq 'include $(TOPDIR)/feeds/luci/luci.mk' "$dest/Makefile"; then
+    echo "ERROR: pinned Airoha NPU package Makefile is not feed-compatible" >&2
+    exit 1
+  fi
+  # Drop the author's older nested packaging template to avoid duplicate scans.
+  rm -rf -- "$dest/luci-app-airoha-npu"
+  record_commit "$repo" "$dest"
+}
+
 echo "Importing third-party packages used by the GENERAL package set..."
 
 import_openclash
 clone_direct "luci-app-lucky" "sirpdboy/luci-app-lucky" "main"
 import_viking_packages
-clone_direct "luci-app-airoha-npu" "bingoguo93/luci-app-airoha-npu" "main"
+import_airoha_npu
 import_footstrap
 import_autoreboot
 
