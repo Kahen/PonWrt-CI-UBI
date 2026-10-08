@@ -91,6 +91,23 @@ class TemperatureChecks(unittest.TestCase):
                         str(self.tree / integration.PAGE),
                         str(ROOT / "config/temperature-rpc.uc"), measured], check=True)
 
+    def test_rpc_is_defined_exactly_once_and_reads_autocore(self):
+        rpc = (self.tree / integration.RPC).read_text()
+        self.assertEqual(1, len(re.findall(r"\\bgetTempInfo\\s*:", rpc)))
+        self.assertIn("/sbin/tempinfo", rpc)
+        if re.search(r"\\bgetTempInfo\\s*:", subprocess.check_output(
+                ["git", "-C", str(SOURCE / "feeds/luci"),
+                 "show", "HEAD:" + str(integration.RPC)[len("feeds/luci/"):]],
+                text=True)):
+            # Native provider must not be replaced or shadowed by the fallback.
+            self.assertNotIn(integration.MARKER, rpc)
+
+    def test_temperature_view_has_single_rpc_declaration(self):
+        page = (self.tree / integration.PAGE).read_text()
+        self.assertEqual(1, len(re.findall(r"method:\\s*['\"]getTempInfo['\"]", page)))
+        self.assertIn("_('Temperature')", page)
+        self.assertIn("_('Unavailable')", page)
+
     def test_status_reader_has_only_read_access(self):
         acl = json.loads((self.tree / integration.ACL).read_text())
         allowed = acl["luci-mod-status-index"]["read"]["ubus"]["luci"]
