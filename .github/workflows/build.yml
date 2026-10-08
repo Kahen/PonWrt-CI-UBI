@@ -133,6 +133,8 @@ jobs:
         run: |
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+      - name: Check pinned NPU plugin source before importing
+        run: python3 -m unittest discover -s tests -p test_npu_import.py -v
       - name: Import existing custom packages
         working-directory: openwrt
         run: bash ../scripts/customize.sh
