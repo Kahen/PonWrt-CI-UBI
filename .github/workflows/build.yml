@@ -45,6 +45,8 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify feed selection for headless PON builds
+        run: python3 -m unittest discover -s tests -p test_feed_selection.py -v
       - name: Resolve shared source, device catalog and feeds
         id: plan
         env:
