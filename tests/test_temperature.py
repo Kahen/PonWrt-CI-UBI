@@ -93,9 +93,9 @@ class TemperatureChecks(unittest.TestCase):
 
     def test_rpc_is_defined_exactly_once_and_reads_autocore(self):
         rpc = (self.tree / integration.RPC).read_text()
-        self.assertEqual(1, len(re.findall(r"\\bgetTempInfo\\s*:", rpc)))
+        self.assertEqual(1, len(re.findall(r"\bgetTempInfo\s*:", rpc)))
         self.assertIn("/sbin/tempinfo", rpc)
-        if re.search(r"\\bgetTempInfo\\s*:", subprocess.check_output(
+        if re.search(r"\bgetTempInfo\s*:", subprocess.check_output(
                 ["git", "-C", str(SOURCE / "feeds/luci"),
                  "show", "HEAD:" + str(integration.RPC)[len("feeds/luci/"):]],
                 text=True)):
@@ -104,7 +104,7 @@ class TemperatureChecks(unittest.TestCase):
 
     def test_temperature_view_has_single_rpc_declaration(self):
         page = (self.tree / integration.PAGE).read_text()
-        self.assertEqual(1, len(re.findall(r"method:\\s*['\"]getTempInfo['\"]", page)))
+        self.assertEqual(1, len(re.findall(r"method:\s*['\"]getTempInfo['\"]", page)))
         self.assertIn("_('Temperature')", page)
         self.assertIn("_('Unavailable')", page)
 
