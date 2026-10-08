@@ -11,6 +11,12 @@ import urllib.parse
 import urllib.request
 
 
+# Video/desktop multimedia adds Qt, GStreamer and EGL Kconfig cycles to this
+# headless PON router build. It supplies none of the requested runtime apps,
+# image tooling or PON driver packages.
+EXCLUDED_FEEDS = {"video"}
+
+
 def git(source, *args):
     return subprocess.check_output(
         ["git", "-C", str(source), *args], text=True
@@ -80,7 +86,7 @@ def resolve(source, fetch=github_json):
     upstream = git(source, "show", "HEAD:feeds.conf.default")
     source_sha = git(source, "rev-parse", "HEAD")
     source_time = git(source, "show", "-s", "--format=%cI", "HEAD")
-    lines, records, names = [], [], set()
+    lines, records, names, excluded = [], [], set(), []
     for line in upstream.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
@@ -93,13 +99,19 @@ def resolve(source, fetch=github_json):
         if name in names:
             raise ValueError(f"Duplicate feed name: {name}")
         names.add(name)
+        if name in EXCLUDED_FEEDS:
+            excluded.append(name)
+            lines.append(f"# CI excluded unused feed: {name} ({spec})")
+            print(f"{name}: excluded (unused multimedia feed)", flush=True)
+            continue
         pinned, record = resolve_feed(kind, name, spec, source_time, fetch)
         lines.append(pinned)
         records.append(record)
         print(f"{name}: {record['commit']} ({record['mode']})", flush=True)
     if not records:
         raise ValueError("The upstream source contains no active feeds")
-    resolution = {"source_commit": source_sha, "source_time": source_time, "feeds": records}
+    resolution = {"source_commit": source_sha, "source_time": source_time,
+                  "feeds": records, "excluded_feeds": excluded}
     # Do not replace the upstream config until every feed has resolved.
     (source / "feeds.conf.default").write_text("\n".join(lines) + "\n")
     (source / "feeds-resolution.json").write_text(
