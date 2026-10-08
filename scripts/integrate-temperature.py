@@ -32,16 +32,36 @@ def integrate(source):
 
     rpc = (source / RPC).read_text()
     if MARKER not in rpc:
+        # Newer ImmortalWrt LuCI already implements this method. Keep it intact:
+        # adding a duplicate key would shadow the upstream implementation.
         if re.search(r"\bgetTempInfo\s*:", rpc):
-            raise ValueError("Upstream now defines getTempInfo; review its response format")
-        fragment = (CI_DIR / "config/temperature-rpc.uc").read_text()
-        rpc = replace_once(rpc, "const methods = {\n", "const methods = {\n" + fragment, "LuCI RPC methods")
+            if not (re.search(r"popen\(['\"]/sbin/tempinfo['\"]\)", rpc)
+                    and re.search(r"return\s*\{\s*tempinfo\s*:", rpc)):
+                raise ValueError("Existing LuCI getTempInfo does not read /sbin/tempinfo")
+        else:
+            fragment = (CI_DIR / "config/temperature-rpc.uc").read_text()
+            rpc = replace_once(rpc, "const methods = {\n", "const methods = {\n" + fragment, "LuCI RPC methods")
 
     page = (source / PAGE).read_text()
     if MARKER not in page:
         if "getTempInfo" in page:
-            raise ValueError("Upstream now calls getTempInfo; review its page integration")
-        declaration = """
+            # Native LuCI has the RPC declaration, Promise load and a conditional
+            # temperature row. Preserve those and only make the row explicit even
+            # when the sensor/RPC is unavailable.
+            if not (re.search(r"method:\s*['\"]getTempInfo['\"]", page)
+                    and "callTempInfo()" in page
+                    and "tempinfo.tempinfo" in page):
+                raise ValueError("Existing LuCI temperature view has an unknown API")
+            native_row = ("\t\tif (tempinfo.tempinfo) {\n"
+                          "\t\t\tfields.splice(6, 0, _('Temperature'));\n"
+                          "\t\t\tfields.splice(7, 0, tempinfo.tempinfo);\n"
+                          "\t\t}\n")
+            patched_row = ("\t\t" + MARKER + "\n"
+                           "\t\tfields.splice(6, 0, _('Temperature'), "
+                           "tempinfo.tempinfo || _('Unavailable'));\n")
+            page = replace_once(page, native_row, patched_row, "native LuCI temperature row")
+        else:
+            declaration = """
 // PonWrt-CI temperature integration.
 var callGetTempInfo = rpc.declare({
     object: 'luci',
@@ -50,11 +70,11 @@ var callGetTempInfo = rpc.declare({
 });
 
 """
-        page = replace_once(page, "return baseclass.extend({", declaration + "return baseclass.extend({", "status include")
-        page = replace_once(page, "uci.load('system')", "uci.load('system'),\n\t\t\tL.resolveDefault(callGetTempInfo(), '')", "status load")
-        page = replace_once(page, "_('Kernel Version'),   boardinfo.kernel,",
-                            "_('Kernel Version'),   boardinfo.kernel,\n\t\t\t_('Temperature'),      data[5] || _('Unavailable'),",
-                            "status fields")
+            page = replace_once(page, "return baseclass.extend({", declaration + "return baseclass.extend({", "status include")
+            page = replace_once(page, "uci.load('system')", "uci.load('system'),\n\t\t\tL.resolveDefault(callGetTempInfo(), '')", "status load")
+            page = replace_once(page, "_('Kernel Version'),   boardinfo.kernel,",
+                                "_('Kernel Version'),   boardinfo.kernel,\n\t\t\t_('Temperature'),      data[5] || _('Unavailable'),",
+                                "status fields")
 
     acl = json.loads((source / ACL).read_text())
     methods = acl["luci-mod-status-index"]["read"]["ubus"]["luci"]
