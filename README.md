@@ -96,6 +96,9 @@ CI 为 Airoha 补齐脚本安装与页面接入，并逐个检查最终镜像中
 由于当前 `video` feed 的 Qt/GStreamer Kconfig 循环依赖会影响无显示设备的 PON 固件配置解析，
 此 CI 在解析阶段排除该非必需多媒体 feed；保留 packages、LuCI、路由及 PON feeds，
 并在 `feeds-resolution.json` 中记录 `excluded_feeds`。
+同时移除未选择的 `mpd` feed 包入口以消除剩余 Kconfig 自循环；
+针对当前 `libevdev` 的不可用 `input-support` 依赖，在编译前执行只作用于此包的兼容调整，
+显式选用 `libudev-zero`，保留 `usbutils` / `usbmuxd` 的强制校验。
 这能减少 feed 超前的问题，但不能保证未来所有上游版本一定编译成功。
 
 `config/xg040g-md-ubi.config`、`menuconfig.config`、`validation/resolved.config` 和
