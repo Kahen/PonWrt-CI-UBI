@@ -106,7 +106,11 @@ import_airoha_npu() {
 
   remove_matches "luci-app-airoha-npu"
   git init -q "$dest"
-  git -C "$dest" remote add origin "https://github.com/Kahen/PonWrt-CI-UBI.git"
+  git -C "$dest" remote add origin "https://github.com/${repo}.git"
+  if [ "$(git -C "$dest" remote get-url origin)" != "https://github.com/${repo}.git" ]; then
+    echo "ERROR: wrong Airoha NPU origin; expected https://github.com/${repo}.git" >&2
+    exit 1
+  fi
   git -C "$dest" fetch --depth=1 origin "$revision"
   git -C "$dest" -c advice.detachedHead=false checkout --detach FETCH_HEAD
 
