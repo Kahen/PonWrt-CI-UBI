@@ -12,7 +12,12 @@ python3 "$CI_DIR/scripts/devices.py" config "$SUBTARGET" "$CATALOG" > .config
 cat "$CI_DIR/config/common.config" \
     "$CI_DIR/config/general-packages.config" \
     "$CI_DIR/config/pon-packages.config" >> .config
-make defconfig
+mkdir -p logs
+make defconfig 2>&1 | tee logs/defconfig.log
+if grep -q 'recursive dependency detected!' logs/defconfig.log; then
+  echo 'ERROR: make defconfig reported recursive Kconfig dependencies; inspect logs/defconfig.log' >&2
+  exit 1
+fi
 python3 "$CI_DIR/scripts/validate.py" config .config "$SUBTARGET" "$CATALOG"
 mkdir -p files
 cp -a "$CI_DIR/files/." files/
