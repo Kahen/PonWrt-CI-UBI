@@ -28,12 +28,17 @@ assert.equal(temperatureRPC('partial value', null), '');
 assert.equal(temperatureRPC('', 0, false), '');
 
 async function renderSystem(value, fail = false) {
+    const pageSource = fs.readFileSync(pagePath, 'utf8');
+    const hasNativeTemperature = pageSource.includes('var callTempInfo = rpc.declare');
     const declarations = [];
     const responses = {
         board: {hostname: 'ponwrt', model: 'ZNXT ZN504XG-D',
                 system: 'ARMv8 Processor rev 4', kernel: '6.18.52',
                 release: {target: 'airoha/an7581', description: 'PonWrt'}},
         info: {},
+        getCPUBench: {cpubench: ''},
+        getCPUInfo: {cpuinfo: 'ARMv8 Processor rev 4'},
+        getCPUUsage: {cpuusage: '9'},
         getVersion: {branch: 'LuCI', revision: 'test'},
         getUnixtime: {result: 0},
         getTempInfo: {tempinfo: value},
@@ -60,7 +65,7 @@ async function renderSystem(value, fail = false) {
             appendChild(child) {this.children.push(child);}
         })
     };
-    const page = vm.runInNewContext('(function(){\n' + fs.readFileSync(pagePath, 'utf8') +
+    const page = vm.runInNewContext('(function(){\n' + pageSource +
         '\n})()', scope);
     const table = page.render(await page.load());
     const rows = Object.fromEntries(table.children.map(row =>
@@ -69,6 +74,9 @@ async function renderSystem(value, fail = false) {
     assert.equal(rows['Target Platform'], 'airoha/an7581');
     assert.equal(rows.Model, 'ZNXT ZN504XG-D');
     assert.ok(declarations.some(d => d.object === 'luci' && d.method === 'getTempInfo'));
+    assert.equal(rows.Temperature, value || 'Unavailable');
+    if (hasNativeTemperature)
+        assert.ok(declarations.some(d => d.method === 'getCPUBench' && d.object === 'luci'));
     return rows.Temperature;
 }
 
