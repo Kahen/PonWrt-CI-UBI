@@ -140,6 +140,10 @@ jobs:
       - name: Import existing custom packages
         working-directory: openwrt
         run: bash ../scripts/customize.sh
+      - name: Verify patched headless audio and USB dependencies
+        env:
+          PONWRT_TEST_SOURCE: openwrt
+        run: python3 -m unittest discover -s tests -p test_feed_compatibility.py -v
       - name: Configure all profiles with separate root filesystems
         working-directory: openwrt
         run: bash ../scripts/configure.sh "$SUBTARGET" ../build-plan/catalog.json
