@@ -153,6 +153,10 @@ if [ -L ./package/feeds/packages/squeezelite ]; then
   rm ./package/feeds/packages/squeezelite
 fi
 
+# The pinned packages feed retains an unused MPD Kconfig self-cycle and
+# libevdev's input-support feature guard blocks libudev-zero / usbutils.
+python3 "$(dirname "$0")/adjust-feed-packages.py" .
+
 # Force package metadata to be regenerated after adding/removing package trees.
 rm -rf ./tmp
 
