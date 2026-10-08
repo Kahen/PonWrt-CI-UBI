@@ -140,6 +140,8 @@ jobs:
         working-directory: openwrt
         run: bash ../scripts/configure.sh "$SUBTARGET" ../build-plan/catalog.json
       - name: Run firmware publication checks
+        env:
+          PONWRT_TEST_SOURCE: openwrt
         run: python3 -m unittest discover -s tests -v
       - name: Download sources
         working-directory: openwrt

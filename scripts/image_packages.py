@@ -5,6 +5,7 @@ import struct
 import subprocess
 import tarfile
 import tempfile
+from temperature_files import validate_temperature_files, TEMPERATURE_PATHS
 
 
 def fdtget(image, node, prop, kind="x"):
@@ -69,7 +70,7 @@ def parse_packages(text):
     return packages
 
 
-def image_packages(image):
+def image_packages(image, require_temperature=False):
     image = pathlib.Path(image)
     with image.open("rb") as stream:
         magic = stream.read(4)
@@ -79,6 +80,18 @@ def image_packages(image):
     with tempfile.TemporaryDirectory() as temporary:
         path = pathlib.Path(temporary) / "rootfs.squashfs"
         path.write_bytes(rootfs)
+        if require_temperature:
+            directory = pathlib.Path(temporary) / "temperature"
+            result = subprocess.run(
+                ["unsquashfs", "-no-progress", "-no-xattrs", "-processors", "1",
+                 "-d", str(directory), str(path), *TEMPERATURE_PATHS],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            if result.returncode:
+                raise ValueError("Cannot extract temperature integration files: " + result.stderr)
+            errors = validate_temperature_files(directory)
+            if errors:
+                raise ValueError("\n".join(errors))
         for db in ["lib/apk/db/installed", "usr/lib/apk/db/installed",
                    "usr/lib/opkg/status", "var/lib/opkg/status"]:
             result = subprocess.run(

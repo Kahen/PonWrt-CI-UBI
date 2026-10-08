@@ -105,6 +105,9 @@ clone_direct "luci-app-airoha-npu" "bingoguo93/luci-app-airoha-npu" "main"
 import_footstrap
 import_autoreboot
 
+# Connect autocore to the pinned LuCI feed before package metadata is generated.
+python3 "$(dirname "$0")/integrate-temperature.py" .
+
 # This unselected audio package has a circular codec dependency with this
 # source/feed snapshot. Exclude only its installed feed symlink so the
 # Kconfig parser can load a clean menu; no requested firmware package uses it.

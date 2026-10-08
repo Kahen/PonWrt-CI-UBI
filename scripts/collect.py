@@ -58,7 +58,7 @@ def collect(source, output, subtarget, catalog):
         metadata_file = output / f"{profile}-sysupgrade-metadata.json"
         subprocess.run([str(fwtool), "-q", "-i", str(metadata_file), str(upgrade)], check=True)
         metadata = json.loads(metadata_file.read_text())
-        packages = image_packages(upgrade)
+        packages = image_packages(upgrade, require_temperature=True)
         errors = validate_profile(metadata, info, profile, subtarget, packages)
         if errors:
             raise ValueError("\n".join(errors))

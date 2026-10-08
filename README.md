@@ -74,6 +74,10 @@ MF 原布局的原生 factory 分拆文件不等同于 MD 的 UBI 迁移包。
 Footstrap、自动重启插件、中文 LuCI，以及 PON 页面、PON 驱动与调试工具。
 PON 配置入口：**网络 → PON**。
 
+系统概览通过 autocore 的温度脚本、luci.getTempInfo 和只读 ACL 显示实时温度。
+CI 为 Airoha 补齐脚本安装与页面接入，并逐个检查最终镜像中的整条链路。
+没有可用读数时显示“不可用”，不显示虚假的 0°C；温度会随概览页面轮询刷新。
+
 - `config/common.config`：通用诊断、USB、文件系统与恢复所需驱动。
 - `config/general-packages.config`：原 CI 的应用和 LuCI 选择。
 - `config/pon-packages.config`：PON 栈、网络模块与关键运行依赖。

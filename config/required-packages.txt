@@ -47,3 +47,6 @@ ubi-utils
 usbutils
 usbmuxd
 luci-app-autoreboot
+autocore
+rpcd-mod-ucode
+ucode-mod-fs
