@@ -93,6 +93,9 @@ CI 为 Airoha 补齐脚本安装与页面接入，并逐个检查最终镜像中
 
 每次先固定 PonWrt 源码 commit，再解析 feeds：保留上游已固定的版本；
 未固定的 GitHub feed 选择不晚于源码提交时间的最新提交，并锁定到本次构建。
+由于当前 `video` feed 的 Qt/GStreamer Kconfig 循环依赖会影响无显示设备的 PON 固件配置解析，
+此 CI 在解析阶段排除该非必需多媒体 feed；保留 packages、LuCI、路由及 PON feeds，
+并在 `feeds-resolution.json` 中记录 `excluded_feeds`。
 这能减少 feed 超前的问题，但不能保证未来所有上游版本一定编译成功。
 
 `config/xg040g-md-ubi.config`、`menuconfig.config`、`validation/resolved.config` 和
