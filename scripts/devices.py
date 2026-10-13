@@ -37,7 +37,11 @@ def discover(source):
     sha = subprocess.check_output(
         ["git", "-C", str(source), "rev-parse", "HEAD"], text=True
     ).strip()
-    return {"source_commit": sha, "targets": targets, "profile_count": len(selected)}
+    result = {"source_commit": sha, "targets": targets, "profile_count": len(selected)}
+    adaptation = source / "hg5582a-adaptation.json"
+    if adaptation.exists():
+        result["ci_adaptations"] = [json.loads(adaptation.read_text())]
+    return result
 
 
 def profiles_for(catalog, subtarget):

@@ -1,0 +1,52 @@
+#!/bin/sh
+# Read-only checks for the verified Toshiba HG5582A and existing all-in-UBI.
+set -eu
+. /lib/functions/system.sh
+. /lib/upgrade/nand.sh
+fail() { echo "HG5582A: $*" >&2; exit 1; }
+case "$(board_name)" in
+	fiberhome,hg5582a|fiberhome,hg5382a) ;;
+	*) fail "unsupported board identity" ;;
+esac
+for name in bl2 ubi; do
+	dev=
+	for p in /sys/class/mtd/mtd[0-9]*; do
+		[ -r "$p/name" ] || continue
+		[ "$(cat "$p/name")" = "$name" ] || continue
+		dev="$p"
+		break
+	done
+	[ -n "$dev" ] || fail "missing $name MTD"
+	[ "$(cat "$dev/writesize")" = 2048 ] || fail "page size differs"
+	[ "$(cat "$dev/oobsize")" = 128 ] || fail "physical OOB differs"
+	[ "$(cat "$dev/erasesize")" = 131072 ] || fail "erase size differs"
+	[ "$(cat "$dev/ecc_strength")" = 8 ] || fail "ECC strength must be 8"
+	[ "$(cat "$dev/ecc_step_size")" = 512 ] || fail "ECC step must be 512"
+	case "$name:$(cat "$dev/size")" in
+		bl2:131072|ubi:268304384) ;;
+		*) fail "$name layout differs" ;;
+	esac
+done
+log="$(busybox dmesg)"
+printf '%s\n' "$log" | grep -Fq 'Manufacturer ID: 0x98, Chip ID: 0xda' ||
+	fail "Toshiba 98:da NAND evidence missing; retain cold-boot logs"
+printf '%s\n' "$log" | grep -Fq 'Toshiba NAND 256MiB' ||
+	fail "this image is for the verified 256 MiB Toshiba variant"
+printf '%s\n' "$log" | grep -Fq 'GN28L95 frontend registered, ID 0xa1, calibration ready' ||
+	fail "verified GN28L95 calibration is not ready"
+ubidev="$(nand_find_ubi ubi)"
+[ -n "$ubidev" ] || fail "UBI not attached"
+for volume in fip ubootenv ubootenv2 factory fit; do
+	v="$(nand_find_volume "$ubidev" "$volume")"
+	[ -n "$v" ] || fail "missing $volume volume"
+	case "$volume" in
+		fip) [ "$(cat "/sys/class/ubi/$v/data_bytes")" -gt 0 ] || fail "empty FIP" ;;
+		factory) [ "$(cat "/sys/class/ubi/$v/data_bytes")" = 1048576 ] || fail "factory size differs" ;;
+	esac
+done
+echo "HG5582A Toshiba ECC8/512 and all-in-UBI checks passed."
+case "${1:---hardware}" in
+	--hardware) ;;
+	*) [ "$#" = 1 ] && [ -f "$1" ] || fail "usage: $0 --hardware | SYSUPGRADE.itb"
+	   sysupgrade -T "$1" ;;
+esac

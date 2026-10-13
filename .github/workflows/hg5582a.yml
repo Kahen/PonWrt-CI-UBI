@@ -1,0 +1,28 @@
+name: Build HG5582A Toshiba ECC8 (r24 source)
+
+on:
+  push:
+    branches: [feat/hg5582a-toshiba-ecc8]
+    paths:
+      - '.github/workflows/**'
+      - 'boards/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'config/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hg5582a-r24-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    uses: ./.github/workflows/build.yml
+    with:
+      source_ref: a57faf93c6c3638ba3651690228aabaa51d3f235
+      hg5582a_only: true
+      publish_release: false

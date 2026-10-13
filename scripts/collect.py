@@ -9,6 +9,7 @@ import sys
 from devices import profiles_for
 from image_packages import image_packages
 from validate import validate_config, validate_profile
+import importlib.util
 
 
 def sha256(path):
@@ -68,6 +69,13 @@ def collect(source, output, subtarget, catalog):
         ))
         for item in images:
             shutil.copy2(target / item["name"], output / item["name"])
+        if profile == "fiberhome_hg5582a":
+            spec = importlib.util.spec_from_file_location("hg5582a_validation", pathlib.Path(__file__).with_name("validate-hg5582a.py"))
+            checker = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(checker)
+            checker.validate_images(source, output, info)
+            shutil.copy2(pathlib.Path(__file__).resolve().parent.parent / "packages/hg5582a-support/files/hg5582a-check-upgrade",
+                         output / "HG5582A-Toshiba-ECC8-check-upgrade.sh")
         summary.append({
             "profile": profile, "titles": info.get("titles", []),
             "sysupgrade": upgrades[0]["name"], "recovery": [x["name"] for x in recovery],

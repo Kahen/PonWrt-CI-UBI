@@ -6,14 +6,16 @@
 
 ## 支持机型
 
-当前覆盖 AN7581 的 12 个 profile 和 AN7583 的 2 个 profile，共 14 个机型/布局配置。
+当前覆盖 AN7581 的 13 个 profile 和 AN7583 的 2 个 profile，共 15 个机型/布局配置。
 每次构建从选定源码的 configs/an7581.config、configs/an7583.config 自动读取机型，
 并检查源码设备定义和中文 README，防止漏掉上游已列出的设备。
-构建范围与 PonWrt 的 PON 发布配置一致；不是 Airoha 目录下所有开发板。
+构建覆盖 PonWrt 的 PON 发布配置，另加此 CI 验证的 HG5582A Toshiba/ECC8 板型；不是 Airoha 目录下所有开发板。
+`install-hg5582a.py` 在云端源码中添加这个 profile，其他上游硬件定义不改动。
 
 | 芯片 | 设备/变体 | 下载文件中的 profile |
 | --- | --- | --- |
 | AN7581 | FiberHome HG5382A | `fiberhome_hg5382a` |
+| AN7581 | FiberHome HG5582A Toshiba/ECC8 | `fiberhome_hg5582a` |
 | AN7581 | FiberHome HG5585F CT | `fiberhome_hg5585f-ct` |
 | AN7581 | FiberHome HG5585F CT USB-SFP | `fiberhome_hg5585f-ct-usb-sfp` |
 | AN7581 | FiberHome HG5585F CU | `fiberhome_hg5585f-cu` |
@@ -67,6 +69,43 @@ XG-040G-MD 固件不能用于 ZN504XG-D，必须选择对应 profile 的镜像�
 
 本仓库不额外制作 XG-040G-MD factory 转换固件。保留上游各 profile 自带的产物；
 MF 原布局的原生 factory 分拆文件不等同于 MD 的 UBI 迁移包。
+
+## HG5582A Toshiba/ECC8 固件
+
+独立 profile 为 `fiberhome_hg5582a`，输出 HG5582A 名称的 sysupgrade 和 initramfs。
+已验证硬件范围为 HG5582A V4.2.0：AN7581、512 MiB DDR4、
+Toshiba TC58NVG1S3HTAI0（256 MiB、2 KiB 页、128 KiB 擦除块、128 字节 OOB）、
+GN28L95 光口、EPON 10G/1G、LAN1 GPY211 和 LAN2–4 内置交换机。
+板级连线和 all-in-UBI 边界沿用共享 HG5382A 描述，BL2 仍为首个 128 KiB，
+UBI 从 0x20000 开始；**这个系统升级不重写 BL2/FIP，不重建 UBI**。
+
+Toshiba 型号经 NAND ID 选择 ECC8/512，保留上游 EN7581 的 BCH/FDM 布局。
+r24 驱动的显式 DTS ECC 配置会绕过 preserve_requirements；此适配不添加这种覆盖，
+也不把其他 NAND/机型全局改成 ECC8。CI 在源码适配前检查这一策略和分区边界，
+再检查最终 sysupgrade/initramfs 内的真实 DT，以及 rootfs 内的支持脚本。
+
+EPON 默认模式在 DT 中设置为 epon-10g-1g。HG5582A 专用包在空白 PON 配置时
+写入相同的 UCI mode，使 airoha-pond 选择 oam0；已明确配置的模式和身份保留。
+公开代码、镜像和测试不包含个人 MAC、PON 凭据或光口校准。
+每台设备仍必须使用自己的 factory。
+
+从曾装 HG5382A 共享 profile 的这台 HG5582A 升级，镜像保留旧板名作为兼容入口。
+这个别名不能证明物理型号或 NAND 正确。下载后先在路由器执行：
+
+```sh
+sh HG5582A-Toshiba-ECC8-check-upgrade.sh /tmp/ponwrt-airoha-an7581-fiberhome_hg5582a-squashfs-sysupgrade.itb
+```
+
+脚本只读核对 Toshiba 98:da、256 MiB、ECC8/512、页面/OOB/分区、GN28L95 校准就绪和完整 UBI 基础卷，
+然后执行 sysupgrade -T；任何一项失败都停止，不用强刷。
+原厂非 UBI 布局、Winbond/ECC4、缺少本机 factory 的设备不能套用此升级入口。
+升级后再次核对 ECC8、factory 哈希、正常重启和 PON 模式。
+已验证共享固件上的校准加载；这个新镜像的实机启动/运营商注册仍须单独验证。
+
+Actions → **Build HG5582A Toshiba ECC8 (r24 source)** 固定使用给定 r24 的
+上游提交 a57faf93c6c3638ba3651690228aabaa51d3f235，仅构建 HG5582A，
+通过验证后产物在 PonWrt-firmware-an7581 Artifact。候选构建不发布正式 Release。
+通用 weekly workflow 则继续按选定源码构建全机型，并加入此 CI 板型。
 
 ## 软件包与硬件配置
 
@@ -139,6 +178,7 @@ MD all-in-UBI 上游布局使用 128 KiB BL2 区域、UBI 从 0x20000 开始；
 在 PonWrt 源码目录执行以下命令；`an7581` 可替换为 `an7583`：
 
 ```sh
+python3 ../PonWrt-CI-UBI/scripts/install-hg5582a.py .
 python3 ../PonWrt-CI-UBI/scripts/devices.py discover . ../device-catalog.json
 python3 ../PonWrt-CI-UBI/scripts/resolve-feeds.py .
 ./scripts/feeds update -a

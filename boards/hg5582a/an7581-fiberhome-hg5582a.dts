@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Verified HG5582A V4.2.0: AN7581, 512 MiB, TC58NVG1S3HTAI0, GN28L95. */
+#include "an7581-fiberhome-hg5382a.dts"
+
+/ {
+	model = "FiberHome HG5582A";
+	/* The old shared profile and existing U-Boot use the second identity. */
+	compatible = "fiberhome,hg5582a", "fiberhome,hg5382a",
+		     "airoha,an7581", "airoha,en7581";
+};
+
+&xpon_mac {
+	airoha,default-line-mode = "epon-10g-1g";
+};
+
+/*
+ * Retain ID/ONFI ECC selection in an7581-fiberhome-ubi-parts.dtsi.
+ * This Toshiba part selects ECC8/512. Explicit ECC settings in the r24 MTK
+ * driver bypass its preserve_requirements path; do not add them here.
+ * The shared layout, FDM/OOB mapping and other profiles remain unchanged.
+ */

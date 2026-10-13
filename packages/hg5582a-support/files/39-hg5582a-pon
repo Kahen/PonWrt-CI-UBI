@@ -1,0 +1,11 @@
+#!/bin/sh
+# Empty mode would make airoha-pond choose OMCI even with an EPON DT default.
+. /lib/functions/system.sh
+[ "$(board_name)" = "fiberhome,hg5582a" ] || exit 0
+[ "$(uci -q get pon.line0)" = "xpon" ] || exit 1
+if [ -z "$(uci -q get pon.line0.mode)" ]; then
+	uci set pon.line0.mode='epon-10g-1g' &&
+	uci commit pon || exit 1
+fi
+# Retain configured identities, operator settings, and explicit user modes.
+exit 0

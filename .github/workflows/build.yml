@@ -4,6 +4,17 @@ on:
   schedule:
     # UTC Saturday 20:17 = Sunday 04:17 in Asia/Shanghai.
     - cron: '17 20 * * 6'
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        default: master
+      publish_release:
+        type: boolean
+        default: false
+      hg5582a_only:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       source_ref:
@@ -11,6 +22,11 @@ on:
         required: true
         default: master
         type: string
+      hg5582a_only:
+        description: Build only the verified HG5582A Toshiba variant (artifact only)
+        required: true
+        default: false
+        type: boolean
       publish_release:
         description: Publish all validated device images as a formal release
         required: true
@@ -20,6 +36,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build.yml'
+      - 'boards/**'
+      - 'packages/**'
       - 'config/**'
       - 'scripts/**'
       - 'files/**'
@@ -35,6 +53,7 @@ concurrency:
 env:
   SOURCE_REPO: https://github.com/pbs05/ponwrt.git
   SOURCE_REF: ${{ inputs.source_ref || 'master' }}
+  HG5582A_ONLY: ${{ inputs.hg5582a_only && 'true' || 'false' }}
 
 jobs:
   prepare:
@@ -57,12 +76,20 @@ jobs:
           git -C source fetch --depth=1 -- origin "$SOURCE_REF"
           git -C source checkout --detach FETCH_HEAD
           mkdir -p build-plan
+          python3 scripts/install-hg5582a.py source
+          PONWRT_TEST_SOURCE=source python3 -m unittest discover -s tests -p test_hg5582a.py -v
           python3 scripts/devices.py discover source build-plan/catalog.json
           python3 scripts/resolve-feeds.py source
           cp source/feeds.conf.default source/feeds-resolution.json build-plan/
           python3 - <<'PY'
           import json, os, pathlib
           catalog = json.loads(pathlib.Path('build-plan/catalog.json').read_text())
+          if os.environ['HG5582A_ONLY'] == 'true':
+              if 'fiberhome_hg5582a' not in catalog['targets']['an7581']:
+                  raise SystemExit('HG5582A adaptation missing from catalog')
+              catalog['targets'] = {'an7581': ['fiberhome_hg5582a']}
+              catalog['profile_count'] = 1
+              pathlib.Path('build-plan/catalog.json').write_text(json.dumps(catalog, indent=2) + '\n')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('source_commit=' + catalog['source_commit'] + '\n')
               output.write('matrix=' + json.dumps({'subtarget': list(catalog['targets'])}) + '\n')
@@ -121,6 +148,7 @@ jobs:
           git -C openwrt remote add origin "$SOURCE_REPO"
           git -C openwrt fetch --depth=1 -- origin "$SOURCE_COMMIT"
           git -C openwrt checkout --detach FETCH_HEAD
+          python3 scripts/install-hg5582a.py openwrt
           cp build-plan/feeds.conf.default build-plan/feeds-resolution.json openwrt/
       - name: Cache source downloads
         uses: actions/cache@v4
@@ -183,7 +211,7 @@ jobs:
 
   release:
     needs: [prepare, build]
-    if: github.event_name != 'workflow_dispatch' || inputs.publish_release
+    if: ${{ !inputs.hg5582a_only && (github.event_name == 'push' || github.event_name == 'schedule' || inputs.publish_release) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
