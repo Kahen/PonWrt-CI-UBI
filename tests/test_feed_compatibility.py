@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression checks for pinned audio/USB feed metadata on Airoha."""
+"""Regression checks for pinned feed metadata on Airoha."""
 import importlib.util
 import os
 import pathlib
@@ -50,6 +50,30 @@ class FeedCompatibilityChecks(unittest.TestCase):
             with mock.patch.object(patches, "UNUSED_LUCI_CYCLES", ("luci-app-openclash",)):
                 with self.assertRaisesRegex(ValueError, "Cannot exclude requested"):
                     patches.exclude_unused_luci_cycles(pathlib.Path(tmp))
+
+    def test_gnupg2_utils_selects_gnupg2_without_changing_other_packages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp)
+            makefile = source / patches.GNUPG2_MAKEFILE
+            makefile.parent.mkdir(parents=True)
+            original = (
+                b"define Package/gnupg2-utils\n"
+                b"  $(call Package/gnupg2/Default)\n"
+                b"  DEPENDS:=gnupg2 +libcurl\n"
+                b"endef\n\n"
+                b"define Package/another-package\n"
+                b"  DEPENDS:=gnupg2 +libcurl\n"
+                b"endef\n"
+            )
+            makefile.write_bytes(original)
+
+            patches.adjust_gnupg2(source)
+            patches.adjust_gnupg2(source)
+
+            self.assertEqual(
+                original.replace(b"DEPENDS:=gnupg2", b"DEPENDS:=+gnupg2", 1),
+                makefile.read_bytes(),
+            )
 
     def assert_miniupnpd_patched(self, package):
         if "PKG_VERSION:=2.3.11\n" not in (package / "Makefile").read_text():
@@ -223,6 +247,9 @@ class FeedCompatibilityChecks(unittest.TestCase):
                          "feeds/packages/utils/usbmuxd/Makefile",
                          "feeds/packages/libs/libudev-zero/Makefile"]:
             self.assertTrue((source / relative).is_file(), relative)
+        gnupg2 = source / patches.GNUPG2_MAKEFILE
+        if gnupg2.is_file():
+            self.assertNotIn(patches.GNUPG2_UTILS_DEPENDENCY, gnupg2.read_bytes())
         package = source / patches.MINIUPNPD
         self.assert_miniupnpd_patched(package)
 

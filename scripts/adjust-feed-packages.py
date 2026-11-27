@@ -12,6 +12,12 @@ MPD_LINK = pathlib.Path("package/feeds/packages/mpd")
 LIBEVDEV_MAKEFILE = pathlib.Path("feeds/packages/libs/libevdev/Makefile")
 INPUT_FEATURE = "  DEPENDS:=input-support"
 PATCHED_FEATURE = "  # This package is also needed by libudev-zero for USB enumeration.\n  # Airoha has no OpenWrt input-support target feature; libevdev is userspace.\n  DEPENDS:="
+GNUPG2_MAKEFILE = pathlib.Path("feeds/packages/utils/gnupg2/Makefile")
+GNUPG2_UTILS_DEPENDENCY = (
+    b"define Package/gnupg2-utils\n"
+    b"  $(call Package/gnupg2/Default)\n"
+    b"  DEPENDS:=gnupg2 +libcurl\n"
+)
 MINIUPNPD = pathlib.Path("feeds/packages/net/miniupnpd")
 MINIUPNPD_BACKPORTS = {
     "020-descr-filter-fix.patch": "4e0f8ddf58cb130044a5f3b92bdf3a8859f8c15e0edbcbcb2b8df42f99e41da1",
@@ -46,6 +52,22 @@ def exclude_unused_luci_cycles(source):
     for link in links:
         link.unlink()
         print(f"Excluded unused cyclic LuCI feed package: {link.name}")
+
+
+def adjust_gnupg2(source):
+    makefile = source / GNUPG2_MAKEFILE
+    if not makefile.is_file():
+        return
+    original = makefile.read_bytes()
+    if GNUPG2_UTILS_DEPENDENCY not in original:
+        return
+    # Backport OpenWrt packages PR #31465. Selecting gnupg2 here prevents
+    # Kconfig from propagating the FWKNOPD_GPG condition to luci-app-fwknopd.
+    fixed_dependency = GNUPG2_UTILS_DEPENDENCY.replace(
+        b"DEPENDS:=gnupg2", b"DEPENDS:=+gnupg2"
+    )
+    makefile.write_bytes(original.replace(GNUPG2_UTILS_DEPENDENCY, fixed_dependency))
+    print("gnupg2-utils: select gnupg2 to break the fwknopd Kconfig cycle")
 
 
 def adjust_miniupnpd(source):
@@ -86,6 +108,7 @@ def adjust_miniupnpd(source):
 def adjust(source):
     source = pathlib.Path(source)
     exclude_unused_luci_cycles(source)
+    adjust_gnupg2(source)
     adjust_miniupnpd(source)
     mpd = source / MPD_LINK
     if mpd.is_symlink():
